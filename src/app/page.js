@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './page.module.css';
 
 // Regras por modalidade (espelham o backend em loterias-sim-api/games.js)
@@ -22,10 +22,19 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [notification, setNotification] = useState(null);
   const [result, setResult] = useState(null);
+  const [lastResults, setLastResults] = useState(null);
+  const [predictions, setPredictions] = useState(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'COLOQUE_Sua_URL_Do_API_GATEWAY_AQUI';
   const cfg = LOTTERIES[selectedLottery];
   const isFixed = cfg.minPick === cfg.maxPick;
+
+  useEffect(() => {
+    fetch(`${API_URL}/resultados`).then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setLastResults(d.results)).catch(() => {});
+    fetch(`${API_URL}/sugestoes`).then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setPredictions(d.suggestions)).catch(() => {});
+  }, [API_URL]);
 
   const changeLottery = (id) => {
     setSelectedLottery(id);
@@ -224,8 +233,39 @@ export default function Home() {
               ))}
             </div>
           )}
+
+          {predictions?.[selectedLottery]?.length > 0 && (
+            <div className={styles.suggestions}>
+              <h4 className={styles.suggestionsTitle}>💡 Sugestões para {cfg.name}</h4>
+              {predictions[selectedLottery].slice(0, 3).map((g, i) => (
+                <div key={i} className={styles.gameRow}>
+                  {g.map((n) => <span key={n} className={styles.ballSm}>{pad(n)}</span>)}
+                </div>
+              ))}
+              <span className={styles.hint}>Geradas por análise estatística do histórico — não aumentam suas chances reais.</span>
+            </div>
+          )}
         </div>
       </section>
+
+      {lastResults && (
+        <section className={`${styles.resultsSection} animate-fade-in`}>
+          <h2 className={styles.sectionTitle}>Últimos resultados</h2>
+          <div className={styles.resultsGrid}>
+            {Object.entries(LOTTERIES).map(([id, l]) => lastResults[id] && (
+              <div key={id} className={`${styles.resultCard} glass-panel`}>
+                <div className={styles.resultCardHead}>
+                  <strong>{l.name}</strong>
+                  <span>Concurso {lastResults[id].concurso}</span>
+                </div>
+                <div className={styles.resultBalls}>
+                  {lastResults[id].dezenas.map((n) => <span key={n} className={styles.ballSm}>{pad(n)}</span>)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className={`${styles.infoSection} animate-fade-in`} style={{ animationDelay: '0.2s' }}>
         <div className={`${styles.card} glass-panel`}>
