@@ -28,6 +28,21 @@
   margin: 0 auto;
 }
 
+.logoHeading {
+  margin: 0 0 1.5rem;
+  display: flex;
+  justify-content: center;
+  /* leve halo para destacar a logo sobre o fundo escuro */
+  background: radial-gradient(ellipse 55% 75% at 50% 50%, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 70%);
+}
+
+.logo {
+  width: 100%;
+  max-width: 440px;
+  height: auto;
+  filter: drop-shadow(0 6px 24px rgba(0, 0, 0, 0.5));
+}
+
 .mainPanel {
   width: 100%;
   max-width: 800px;
@@ -258,4 +273,37 @@
 .card p {
   color: var(--text-muted);
   line-height: 1.5;
+}
+
+.footer {
+  width: 100%;
+  max-width: 1000px;
+  margin-top: 1rem;
+  padding: 2.5rem 1rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  text-align: center;
+}
+
+.footerLogo {
+  width: 170px;
+  height: auto;
+  opacity: 0.92;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.5));
+}
+
+.footerText {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  max-width: 620px;
+}
+
+.footerCopy {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  opacity: 0.8;
 }

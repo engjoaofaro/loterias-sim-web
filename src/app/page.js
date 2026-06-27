@@ -105,7 +105,9 @@ export default function Home() {
     <div className={styles.container}>
       <header className={styles.header}>
         <div className="animate-fade-in">
-          <h1 className={styles.title}>Loterias <span className="text-gradient">Sim</span></h1>
+          <h1 className={styles.logoHeading}>
+            <img src="/logo-loterias-sim.png" alt="Loterias Sim — Simulações de Sorte" className={styles.logo} />
+          </h1>
           <p className={styles.subtitle}>Gere e simule seus jogos da Mega-Sena, Lotofácil e Lotomania. Confira o resultado automaticamente após o sorteio.</p>
         </div>
       </header>
@@ -235,6 +237,15 @@ export default function Home() {
           <p>Seus jogos são guardados e conferidos automaticamente após o sorteio. Se optar por e-mail, você recebe o resultado com seus acertos.</p>
         </div>
       </section>
+
+      <footer className={styles.footer}>
+        <img src="/logo-loterias-sim.png" alt="Loterias Sim" className={styles.footerLogo} />
+        <p className={styles.footerText}>
+          Jogue com responsabilidade. As simulações e análises estatísticas são informativas
+          e não aumentam suas chances reais de premiação — cada sorteio é um evento independente.
+        </p>
+        <p className={styles.footerCopy}>© 2026 Loterias Sim · loteriassim.com.br</p>
+      </footer>
     </div>
   )
 }
