@@ -1,0 +1,19 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_API_URL: https://p49mq9wj2d.execute-api.sa-east-1.amazonaws.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci || npm install
+      - run: npm run build
+# Deploy: build + `aws s3 sync out/ s3://loteriassim.com.br/ --delete`
+# + invalidação do CloudFront (E3PSG08SY8CQCP). Requer credenciais AWS via OIDC.
