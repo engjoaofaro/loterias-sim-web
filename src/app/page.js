@@ -24,6 +24,9 @@ export default function Home() {
   const [result, setResult] = useState(null);
   const [lastResults, setLastResults] = useState(null);
   const [predictions, setPredictions] = useState(null);
+  const [voucher, setVoucher] = useState('');
+  const [aposta, setAposta] = useState(null);
+  const [checking, setChecking] = useState(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'COLOQUE_Sua_URL_Do_API_GATEWAY_AQUI';
   const cfg = LOTTERIES[selectedLottery];
@@ -108,6 +111,23 @@ export default function Home() {
     }
   };
 
+  const handleCheck = async () => {
+    if (!voucher.trim()) return;
+    setChecking(true);
+    setAposta(null);
+    try {
+      const res = await fetch(`${API_URL}/apostas/${encodeURIComponent(voucher.trim())}`);
+      const data = await res.json().catch(() => ({}));
+      setAposta(res.ok ? data : { status: 'nao_encontrado' });
+    } catch (err) {
+      console.error(err);
+      setAposta({ status: 'erro' });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const lotteryName = (id) => LOTTERIES[id]?.name || id;
   const gridNumbers = Array.from({ length: cfg.max - cfg.min + 1 }, (_, i) => cfg.min + i);
 
   return (
@@ -246,6 +266,54 @@ export default function Home() {
             </div>
           )}
         </div>
+      </section>
+
+      <section className={`${styles.checkPanel} glass-panel animate-fade-in`}>
+        <h2 className={styles.sectionTitle}>Conferir aposta</h2>
+        <div className={styles.checkRow}>
+          <input
+            className={styles.inputGlass}
+            value={voucher}
+            onChange={(e) => setVoucher(e.target.value)}
+            placeholder="Cole aqui o voucher da sua aposta"
+          />
+          <button className="btn btn-primary" onClick={handleCheck} disabled={checking}>
+            {checking ? 'Conferindo...' : 'Conferir'}
+          </button>
+        </div>
+
+        {aposta?.status === 'apurada' && (
+          <div className={styles.result}>
+            <div className={styles.resultHeader}>
+              <strong>{lotteryName(aposta.loteria)}</strong> · Concurso #{aposta.concurso}
+            </div>
+            <div className={`${styles.notification} ${aposta.premiado ? styles.notifSuccess : styles.notifError}`}>
+              {aposta.premiado ? '🎉 Você foi premiado!' : 'Não foi dessa vez. 🍀'}
+            </div>
+            <span className={styles.hint}>Dezenas sorteadas</span>
+            <div className={styles.resultBalls}>
+              {aposta.dezenasSorteadas.map((n) => <span key={n} className={styles.ballSm}>{pad(n)}</span>)}
+            </div>
+            {aposta.resultados.map((r, i) => (
+              <div key={i} className={styles.gameRow}>
+                <span className={styles.gameIndex}>{i + 1}</span>
+                {r.numbers.map((n) => <span key={n} className={styles.ballSm}>{pad(n)}</span>)}
+                <span className={styles.hits}>{r.premiacao ? `★ ${r.premiacao}` : `${r.hits} acertos`}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {aposta?.status === 'pendente' && (
+          <div className={`${styles.notification} ${styles.notifSuccess}`}>
+            ✅ Aposta registrada para {lotteryName(aposta.loteria)} — concurso #{aposta.concurso}. Aguardando o sorteio.
+          </div>
+        )}
+        {aposta?.status === 'nao_encontrado' && (
+          <div className={`${styles.notification} ${styles.notifError}`}>Voucher não encontrado.</div>
+        )}
+        {aposta?.status === 'erro' && (
+          <div className={`${styles.notification} ${styles.notifError}`}>Falha ao conferir. Tente novamente.</div>
+        )}
       </section>
 
       {lastResults && (
