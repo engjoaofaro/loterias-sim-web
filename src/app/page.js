@@ -1,66 +1,121 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client'
+import { useState, useEffect } from 'react';
+import styles from './page.module.css';
 
 export default function Home() {
+  const [selectedLottery, setSelectedLottery] = useState('mega-sena');
+  const [ticketCount, setTicketCount] = useState(1);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [suggestions, setSuggestions] = useState(null);
+  const [notification, setNotification] = useState('');
+  
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'COLOQUE_Sua_URL_Do_API_GATEWAY_AQUI';
+
+  const lotteries = [
+    { id: 'mega-sena', name: 'Mega-Sena' },
+    { id: 'lotofacil', name: 'Lotofácil' },
+    { id: 'lotomania', name: 'Lotomania' }
+  ];
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    setNotification('');
+    try {
+      // 1. Opcional: Buscar predições inteligentes do Motor ML (GET)
+      /* 
+      const resPred = await fetch(`${API_URL}/sugestoes`);
+      const predData = await resPred.json();
+      setSuggestions(predData); 
+      */
+
+      // 2. Enviar a simulação desejada pro Backend que jogará no SQS (POST)
+      const payload = {
+        lottery: selectedLottery,
+        gamesToGenerate: ticketCount,
+        timestamp: new Date().toISOString()
+      };
+
+      const res = await fetch(`${API_URL}/jogos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        setNotification('✅ Jogos enviados para simulação com sucesso! O processamento já iniciou na AWS.');
+      } else {
+        setNotification('❌ Ocorreu um erro ao enviar os jogos. Verifique a URL da API.');
+      }
+    } catch (error) {
+      console.error(error);
+      setNotification('❌ Falha na conexão com o Backend.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.js file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <div className="animate-fade-in">
+          <h1 className={styles.title}>Loterias <span className="text-gradient">Sim</span></h1>
+          <p className={styles.subtitle}>O simulador mais avançado para suas apostas. Potencializado por IA e estatística.</p>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      </header>
+
+      <section className={`${styles.mainPanel} glass-panel animate-fade-in`} style={{ animationDelay: '0.1s' }}>
+        <div className={styles.lotterySelector}>
+          {lotteries.map((l) => (
+            <button 
+              key={l.id}
+              className={`${styles.lotteryBtn} ${selectedLottery === l.id ? styles.active : ''}`}
+              onClick={() => setSelectedLottery(l.id)}
+            >
+              {l.name}
+            </button>
+          ))}
+        </div>
+
+        <div className={styles.actionArea}>
+          <div className={styles.controlGroup}>
+            <label>Quantidade de Jogos</label>
+            <input 
+              type="number" 
+              min="1" 
+              max="100" 
+              value={ticketCount}
+              onChange={(e) => setTicketCount(parseInt(e.target.value) || 1)}
+              className={styles.inputGlass} 
             />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          </div>
+
+          <button 
+            className="btn btn-primary" 
+            style={{marginTop: '1.5rem', width: '100%'}}
+            onClick={handleGenerate}
+            disabled={isGenerating}
           >
-            Documentation
-          </a>
+            {isGenerating ? 'Analisando histórico...' : '✨ Gerar Jogo Inteligente'}
+          </button>
+
+          {notification && (
+            <div style={{marginTop: '1rem', padding: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', textAlign: 'center'}}>
+              {notification}
+            </div>
+          )}
         </div>
-      </main>
+      </section>
+
+      <section className={`${styles.infoSection} animate-fade-in`} style={{ animationDelay: '0.2s' }}>
+        <div className={`${styles.card} glass-panel`}>
+          <h3>📈 Análise Preditiva</h3>
+          <p>Nossos algoritmos analisam anos de histórico da Mega-Sena, Lotofácil e Lotomania para maximizar suas chances e simular cenários otimizados.</p>
+        </div>
+        <div className={`${styles.card} glass-panel`}>
+          <h3>⚡ Apuração Automatizada</h3>
+          <p>O ecossistema Serverless faz todo o processamento em background, notificando os resultados com extrema precisão.</p>
+        </div>
+      </section>
     </div>
-  );
+  )
 }
