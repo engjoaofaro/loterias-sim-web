@@ -11,6 +11,27 @@ const LOTTERIES = {
 
 const pad = (n) => String(n).padStart(2, '0');
 
+// fetch com timeout (AbortController) e retry opcional (use só em GETs idempotentes).
+async function fetchJSON(url, { timeout = 12000, retries = 0, ...opts } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeout);
+    try {
+      const res = await fetch(url, { ...opts, signal: ctrl.signal });
+      clearTimeout(timer);
+      return res;
+    } catch (e) {
+      clearTimeout(timer);
+      lastErr = e;
+      if (attempt < retries) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
+}
+
+const isTimeout = (err) => err && (err.name === 'AbortError' || err.name === 'TimeoutError');
+
 export default function Home() {
   const [selectedLottery, setSelectedLottery] = useState('mega-sena');
   const [numbersPerGame, setNumbersPerGame] = useState(LOTTERIES['mega-sena'].minPick);
@@ -33,10 +54,10 @@ export default function Home() {
   const isFixed = cfg.minPick === cfg.maxPick;
 
   useEffect(() => {
-    fetch(`${API_URL}/resultados`).then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setLastResults(d.results)).catch(() => {});
-    fetch(`${API_URL}/sugestoes`).then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setPredictions(d.suggestions)).catch(() => {});
+    fetchJSON(`${API_URL}/resultados`, { timeout: 10000, retries: 1 })
+      .then((r) => (r.ok ? r.json() : null)).then((d) => d && setLastResults(d.results)).catch(() => {});
+    fetchJSON(`${API_URL}/sugestoes`, { timeout: 10000, retries: 1 })
+      .then((r) => (r.ok ? r.json() : null)).then((d) => d && setPredictions(d.suggestions)).catch(() => {});
   }, [API_URL]);
 
   const changeLottery = (id) => {
@@ -85,10 +106,12 @@ export default function Home() {
         numbers: manualMode ? [[...manualNumbers].sort((a, b) => a - b)] : null,
       };
 
-      const res = await fetch(`${API_URL}/jogos`, {
+      // POST não é idempotente -> sem retry, só timeout.
+      const res = await fetchJSON(`${API_URL}/jogos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        timeout: 15000,
       });
       const data = await res.json().catch(() => ({}));
 
@@ -105,7 +128,10 @@ export default function Home() {
       }
     } catch (err) {
       console.error(err);
-      setNotification({ type: 'error', text: '❌ Falha na conexão com o servidor.' });
+      setNotification({
+        type: 'error',
+        text: isTimeout(err) ? '❌ Tempo de conexão esgotado. Tente novamente.' : '❌ Falha na conexão com o servidor.',
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -116,7 +142,7 @@ export default function Home() {
     setChecking(true);
     setAposta(null);
     try {
-      const res = await fetch(`${API_URL}/apostas/${encodeURIComponent(voucher.trim())}`);
+      const res = await fetchJSON(`${API_URL}/apostas/${encodeURIComponent(voucher.trim())}`, { timeout: 10000, retries: 1 });
       const data = await res.json().catch(() => ({}));
       setAposta(res.ok ? data : { status: 'nao_encontrado' });
     } catch (err) {
@@ -141,11 +167,13 @@ export default function Home() {
         </div>
       </header>
 
-      <section className={`${styles.mainPanel} glass-panel animate-fade-in`} style={{ animationDelay: '0.1s' }}>
-        <div className={styles.lotterySelector}>
+      <section className={`${styles.mainPanel} glass-panel animate-fade-in`} style={{ animationDelay: '0.1s' }} aria-label="Gerar jogos">
+        <div className={styles.lotterySelector} role="group" aria-label="Escolha a loteria">
           {Object.entries(LOTTERIES).map(([id, l]) => (
             <button
               key={id}
+              type="button"
+              aria-pressed={selectedLottery === id}
               className={`${styles.lotteryBtn} ${selectedLottery === id ? styles.active : ''}`}
               onClick={() => changeLottery(id)}
             >
@@ -156,25 +184,28 @@ export default function Home() {
 
         <div className={styles.actionArea}>
           <div className={styles.controlGroup}>
-            <label>Dezenas por jogo</label>
+            <label htmlFor="numbersPerGame">Dezenas por jogo</label>
             <input
+              id="numbersPerGame"
               type="number"
               min={cfg.minPick}
               max={cfg.maxPick}
               value={numbersPerGame}
               disabled={isFixed}
+              aria-describedby="numbersHint"
               onChange={(e) => changeNumbersPerGame(e.target.value)}
               className={styles.inputGlass}
             />
-            <span className={styles.hint}>
+            <span id="numbersHint" className={styles.hint}>
               {isFixed ? `${cfg.minPick} dezenas (fixo) de ${pad(cfg.min)} a ${pad(cfg.max)}`
                 : `Escolha de ${cfg.minPick} a ${cfg.maxPick} dezenas (universo ${pad(cfg.min)}–${pad(cfg.max)})`}
             </span>
           </div>
 
           <div className={styles.controlGroup}>
-            <label>Quantidade de jogos</label>
+            <label htmlFor="ticketCount">Quantidade de jogos</label>
             <input
+              id="ticketCount"
               type="number"
               min="1"
               max="100"
@@ -191,12 +222,14 @@ export default function Home() {
             </label>
             {manualMode && (
               <>
-                <span className={styles.hint}>Selecionadas: {manualNumbers.length}/{numbersPerGame}</span>
-                <div className={styles.numberGrid}>
+                <span className={styles.hint} role="status" aria-live="polite">Selecionadas: {manualNumbers.length}/{numbersPerGame}</span>
+                <div className={styles.numberGrid} role="group" aria-label="Escolha suas dezenas">
                   {gridNumbers.map((n) => (
                     <button
                       key={n}
                       type="button"
+                      aria-pressed={manualNumbers.includes(n)}
+                      aria-label={`Dezena ${pad(n)}`}
                       className={`${styles.numberCell} ${manualNumbers.includes(n) ? styles.selected : ''}`}
                       onClick={() => toggleManualNumber(n)}
                     >
@@ -216,6 +249,7 @@ export default function Home() {
             {receiveEmail && (
               <input
                 type="email"
+                aria-label="E-mail para receber o resultado"
                 placeholder="seu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -229,18 +263,23 @@ export default function Home() {
             style={{ marginTop: '0.5rem', width: '100%' }}
             onClick={handleGenerate}
             disabled={isGenerating}
+            aria-busy={isGenerating}
           >
             {isGenerating ? 'Gerando...' : '✨ Gerar Jogos'}
           </button>
 
           {notification && (
-            <div className={`${styles.notification} ${notification.type === 'error' ? styles.notifError : styles.notifSuccess}`}>
+            <div
+              className={`${styles.notification} ${notification.type === 'error' ? styles.notifError : styles.notifSuccess}`}
+              role={notification.type === 'error' ? 'alert' : 'status'}
+              aria-live="polite"
+            >
               {notification.text}
             </div>
           )}
 
           {result?.games && (
-            <div className={styles.result}>
+            <div className={styles.result} role="status" aria-live="polite">
               <div className={styles.resultHeader}>
                 <strong>{cfg.name}</strong> · Concurso #{result.lotteryNumber}
                 <span className={styles.voucher}>voucher: {result.voucher}</span>
@@ -268,56 +307,61 @@ export default function Home() {
         </div>
       </section>
 
-      <section className={`${styles.checkPanel} glass-panel animate-fade-in`}>
+      <section className={`${styles.checkPanel} glass-panel animate-fade-in`} aria-label="Conferir aposta">
         <h2 className={styles.sectionTitle}>Conferir aposta</h2>
         <div className={styles.checkRow}>
+          <label htmlFor="voucher" className={styles.srOnly}>Voucher da aposta</label>
           <input
+            id="voucher"
             className={styles.inputGlass}
             value={voucher}
             onChange={(e) => setVoucher(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleCheck(); }}
             placeholder="Cole aqui o voucher da sua aposta"
           />
-          <button className="btn btn-primary" onClick={handleCheck} disabled={checking}>
+          <button className="btn btn-primary" onClick={handleCheck} disabled={checking} aria-busy={checking}>
             {checking ? 'Conferindo...' : 'Conferir'}
           </button>
         </div>
 
-        {aposta?.status === 'apurada' && (
-          <div className={styles.result}>
-            <div className={styles.resultHeader}>
-              <strong>{lotteryName(aposta.loteria)}</strong> · Concurso #{aposta.concurso}
-            </div>
-            <div className={`${styles.notification} ${aposta.premiado ? styles.notifSuccess : styles.notifError}`}>
-              {aposta.premiado ? '🎉 Você foi premiado!' : 'Não foi dessa vez. 🍀'}
-            </div>
-            <span className={styles.hint}>Dezenas sorteadas</span>
-            <div className={styles.resultBalls}>
-              {aposta.dezenasSorteadas.map((n) => <span key={n} className={styles.ballSm}>{pad(n)}</span>)}
-            </div>
-            {aposta.resultados.map((r, i) => (
-              <div key={i} className={styles.gameRow}>
-                <span className={styles.gameIndex}>{i + 1}</span>
-                {r.numbers.map((n) => <span key={n} className={styles.ballSm}>{pad(n)}</span>)}
-                <span className={styles.hits}>{r.premiacao ? `★ ${r.premiacao}` : `${r.hits} acertos`}</span>
+        <div role="status" aria-live="polite">
+          {aposta?.status === 'apurada' && (
+            <div className={styles.result}>
+              <div className={styles.resultHeader}>
+                <strong>{lotteryName(aposta.loteria)}</strong> · Concurso #{aposta.concurso}
               </div>
-            ))}
-          </div>
-        )}
-        {aposta?.status === 'pendente' && (
-          <div className={`${styles.notification} ${styles.notifSuccess}`}>
-            ✅ Aposta registrada para {lotteryName(aposta.loteria)} — concurso #{aposta.concurso}. Aguardando o sorteio.
-          </div>
-        )}
-        {aposta?.status === 'nao_encontrado' && (
-          <div className={`${styles.notification} ${styles.notifError}`}>Voucher não encontrado.</div>
-        )}
-        {aposta?.status === 'erro' && (
-          <div className={`${styles.notification} ${styles.notifError}`}>Falha ao conferir. Tente novamente.</div>
-        )}
+              <div className={`${styles.notification} ${aposta.premiado ? styles.notifSuccess : styles.notifError}`}>
+                {aposta.premiado ? '🎉 Você foi premiado!' : 'Não foi dessa vez. 🍀'}
+              </div>
+              <span className={styles.hint}>Dezenas sorteadas</span>
+              <div className={styles.resultBalls}>
+                {aposta.dezenasSorteadas.map((n) => <span key={n} className={styles.ballSm}>{pad(n)}</span>)}
+              </div>
+              {aposta.resultados.map((r, i) => (
+                <div key={i} className={styles.gameRow}>
+                  <span className={styles.gameIndex}>{i + 1}</span>
+                  {r.numbers.map((n) => <span key={n} className={styles.ballSm}>{pad(n)}</span>)}
+                  <span className={styles.hits}>{r.premiacao ? `★ ${r.premiacao}` : `${r.hits} acertos`}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {aposta?.status === 'pendente' && (
+            <div className={`${styles.notification} ${styles.notifSuccess}`}>
+              ✅ Aposta registrada para {lotteryName(aposta.loteria)} — concurso #{aposta.concurso}. Aguardando o sorteio.
+            </div>
+          )}
+          {aposta?.status === 'nao_encontrado' && (
+            <div className={`${styles.notification} ${styles.notifError}`}>Voucher não encontrado.</div>
+          )}
+          {aposta?.status === 'erro' && (
+            <div className={`${styles.notification} ${styles.notifError}`}>Falha ao conferir. Tente novamente.</div>
+          )}
+        </div>
       </section>
 
       {lastResults && (
-        <section className={`${styles.resultsSection} animate-fade-in`}>
+        <section className={`${styles.resultsSection} animate-fade-in`} aria-label="Últimos resultados">
           <h2 className={styles.sectionTitle}>Últimos resultados</h2>
           <div className={styles.resultsGrid}>
             {Object.entries(LOTTERIES).map(([id, l]) => lastResults[id] && (

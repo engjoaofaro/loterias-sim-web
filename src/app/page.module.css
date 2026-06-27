@@ -408,3 +408,24 @@
   font-size: 0.85rem;
   color: var(--text-muted);
 }
+
+/* Acessibilidade */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.lotteryBtn:focus-visible,
+.numberCell:focus-visible,
+.inputGlass:focus-visible,
+.checkboxRow input:focus-visible {
+  outline: 2px solid var(--secondary);
+  outline-offset: 2px;
+}
