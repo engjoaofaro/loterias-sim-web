@@ -429,3 +429,23 @@
   outline: 2px solid var(--secondary);
   outline-offset: 2px;
 }
+
+/* Responsivo (mobile) */
+@media (max-width: 640px) {
+  .container { padding: 1.25rem 1rem; }
+  .mainPanel { padding: 1.5rem 1.25rem; margin-bottom: 2.5rem; }
+  .checkPanel { padding: 1.5rem 1.25rem; }
+  .subtitle { font-size: 1rem; }
+  .sectionTitle { font-size: 1.3rem; }
+
+  .lotterySelector { gap: 0.4rem; padding: 0.35rem; margin-bottom: 1.75rem; }
+  .lotteryBtn { padding: 10px 6px; font-size: 0.9rem; min-width: 0; }
+
+  .numberGrid { grid-template-columns: repeat(8, 1fr); }
+  .ball { width: 34px; height: 34px; font-size: 0.8rem; }
+  .ballSm { width: 28px; height: 28px; font-size: 0.72rem; }
+}
+
+@media (max-width: 380px) {
+  .lotteryBtn { font-size: 0.78rem; padding: 9px 3px; }
+}
