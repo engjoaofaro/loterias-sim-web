@@ -35,7 +35,9 @@ const isTimeout = (err) => err && (err.name === 'AbortError' || err.name === 'Ti
 export default function Home() {
   const [selectedLottery, setSelectedLottery] = useState('mega-sena');
   const [numbersPerGame, setNumbersPerGame] = useState(LOTTERIES['mega-sena'].minPick);
+  const [numbersPerGameRaw, setNumbersPerGameRaw] = useState(String(LOTTERIES['mega-sena'].minPick));
   const [ticketCount, setTicketCount] = useState(1);
+  const [ticketCountRaw, setTicketCountRaw] = useState('1');
   const [receiveEmail, setReceiveEmail] = useState(false);
   const [email, setEmail] = useState('');
   const [manualMode, setManualMode] = useState(false);
@@ -63,16 +65,18 @@ export default function Home() {
   const changeLottery = (id) => {
     setSelectedLottery(id);
     setNumbersPerGame(LOTTERIES[id].minPick);
+    setNumbersPerGameRaw(String(LOTTERIES[id].minPick));
     setManualNumbers([]);
     setManualMode(false);
     setResult(null);
   };
 
-  const changeNumbersPerGame = (value) => {
-    const n = parseInt(value, 10) || cfg.minPick;
-    const clamped = Math.min(Math.max(n, cfg.minPick), cfg.maxPick);
+  const commitNumbersPerGame = (raw) => {
+    const n = parseInt(raw, 10);
+    const clamped = isNaN(n) ? cfg.minPick : Math.min(Math.max(n, cfg.minPick), cfg.maxPick);
     setNumbersPerGame(clamped);
-    setManualNumbers([]); // muda a quantidade exigida; limpa a seleção manual
+    setNumbersPerGameRaw(String(clamped));
+    setManualNumbers([]);
   };
 
   const toggleManualNumber = (n) => {
@@ -190,10 +194,11 @@ export default function Home() {
               type="number"
               min={cfg.minPick}
               max={cfg.maxPick}
-              value={numbersPerGame}
+              value={numbersPerGameRaw}
               disabled={isFixed}
               aria-describedby="numbersHint"
-              onChange={(e) => changeNumbersPerGame(e.target.value)}
+              onChange={(e) => setNumbersPerGameRaw(e.target.value)}
+              onBlur={() => commitNumbersPerGame(numbersPerGameRaw)}
               className={styles.inputGlass}
             />
             <span id="numbersHint" className={styles.hint}>
@@ -209,8 +214,14 @@ export default function Home() {
               type="number"
               min="1"
               max="100"
-              value={ticketCount}
-              onChange={(e) => setTicketCount(Math.min(Math.max(parseInt(e.target.value, 10) || 1, 1), 100))}
+              value={ticketCountRaw}
+              onChange={(e) => setTicketCountRaw(e.target.value)}
+              onBlur={() => {
+                const n = parseInt(ticketCountRaw, 10);
+                const clamped = isNaN(n) ? 1 : Math.min(Math.max(n, 1), 100);
+                setTicketCount(clamped);
+                setTicketCountRaw(String(clamped));
+              }}
               className={styles.inputGlass}
             />
           </div>
